@@ -8,7 +8,7 @@ from art.langgraph import wrap_rollout
 from art.local import LocalBackend
 from art.utils import iterate_dataset
 
-from convlab.e2e.multiwoz_dialogue_agent.rl import rollout
+from convlab.e2e.multiwoz_dialogue_agent.rl.rollout import rollout
 from convlab.e2e.multiwoz_dialogue_agent.rl.collect_sft import Scenario
 from convlab.policy.rule.multiwoz.policy_agenda_multiwoz import Goal
 from convlab.task.multiwoz.goal_generator import GoalGenerator
@@ -16,7 +16,7 @@ from convlab.task.multiwoz.goal_generator import GoalGenerator
 
 def load_scenarios_from_jsonl(jsonl_file: str) -> List[Scenario]:
     goal_generator = GoalGenerator(
-        corpus_path="/home/reck/personal/ConvLab-3/data/multiwoz/train.json",
+        corpus_path="/home/user/reck/ConvLab3-thesis/data/multiwoz/train.json",
         sample_reqt_from_trainset=True,
     )
 
@@ -56,6 +56,7 @@ async def train():
         engine_args=art.dev.EngineArgs(
             enforce_eager=True,
             gpu_memory_utilization=0.8,
+            swap_space=0.0,
         ),
     )
 
@@ -68,7 +69,7 @@ async def train():
     await model.register(backend)
 
     all_scenarios = load_scenarios_from_jsonl(
-        "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
+        "/home/user/reck/ConvLab3-thesis/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
     )
 
     random.seed(42)
@@ -106,10 +107,11 @@ async def train():
         # Create trajectory groups for this batch
         groups = []
         for scenario in batch.items:
+            print(f"Creating trajectory group for scenario {scenario.prompt_id} and goal {scenario.goal}")
             groups.append(
                 art.TrajectoryGroup(
                     (
-                        wrap_rollout(model, rollout)(scenario)
+                        wrap_rollout(model, rollout)(scenario.goal, scenario.prompt_id)
                         for _ in range(training_config["rollouts_per_group"])
                     )
                 )

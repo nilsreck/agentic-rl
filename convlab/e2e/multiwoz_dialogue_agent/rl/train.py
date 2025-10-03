@@ -117,7 +117,6 @@ async def train():
                 )
             )
 
-        print(groups[0])
         # Gather all trajectory groups
         finished_groups = await art.gather_trajectory_groups(
             groups,

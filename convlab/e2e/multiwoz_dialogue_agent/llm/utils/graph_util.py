@@ -303,8 +303,7 @@ def create_agent_node(
                 "businessName": config["business"]["name"],
                 "businessType": config["business"]["type"],
                 "businessSector": config["business"]["sector"],
-                "businessDescription": config["business"]["description"]
-                or DEFAULT_BUSINESS_DESCRIPTION,
+                "businessDescription": DEFAULT_BUSINESS_DESCRIPTION,
                 "dateTime": get_current_locale_date_time(SYSTEM_PROMPT_LOCALE),
                 "language": get_language_by_locale(locale),
             }

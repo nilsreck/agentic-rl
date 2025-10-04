@@ -43,7 +43,6 @@ class Analyzer:
         sess = self.build_sess(sys_agent)
         sys_response = "" if self.user_agent.nlu else []
 
-        print(f"Goal in run_dialog_for_rl: {goal}")
         if goal is not None:
             sess.evaluator.add_goal(goal)
 

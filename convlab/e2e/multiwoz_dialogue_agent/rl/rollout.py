@@ -8,7 +8,6 @@ import copy
 
 from art import Trajectory
 from dotenv import load_dotenv
-from langgraph.checkpoint.memory import MemorySaver
 
 from convlab.base_models.t5.nlg.nlg import T5NLG
 from convlab.base_models.t5.nlu.nlu import T5NLU
@@ -105,12 +104,11 @@ def rollout(
 
     user_agent = PipelineAgent(user_nlu, user_dst, user_policy, user_nlg, name="user")
     # async with graph_semaphore:
-    # config = {
-    #     "configurable": {
-    #         "thread_id": str(uuid.uuid4()),
-    #     }
-    # }
-    config = {}
+    config = {
+        "configurable": {
+            "thread_id": str(uuid.uuid4()),
+        }
+    }
     print("Initialising analyzer")
     analyzer = Analyzer(user_agent=user_agent, dataset="multiwoz")
 
@@ -122,7 +120,7 @@ def rollout(
     try:
         return Trajectory(messages_and_choices=[], reward=reward)
     except Exception as e:
-        print(e)
+        print(f"Hallo ich bin ein Fehler: {e}")
 
     return Trajectory(messages_and_choices=[], reward=0)
 

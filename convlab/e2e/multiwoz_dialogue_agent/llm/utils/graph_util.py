@@ -173,29 +173,12 @@ def create_agent_output_edge():
                     ):
                         for tool_call in message.tool_calls:
                             if tool_call.get("name") != "end_conversation":
-                                function_args = tool_call.get("args", {})
-                                function_name = tool_call.get("name", "")
-                                print(
-                                    f"Last tool before end_conversation: {function_name}"
-                                )
-                                print(json.dumps(function_args, indent=2))
                                 break
                         else:
                             continue
                         break
 
             return AGENT_TOOL_NODE_MAP[state["agent"].value]
-
-        for message in reversed(messages):
-            if (
-                isinstance(message, AIMessage)
-                and hasattr(message, "tool_calls")
-                and message.tool_calls
-                and len(message.tool_calls) > 0
-            ):
-                last_tool_call = message.tool_calls[0]
-                function_args = last_tool_call.get("args", {})
-                print(json.dumps(function_args, indent=2))
 
         return END
 
@@ -229,14 +212,12 @@ def create_agent_router_node(
 
             result = model_with_output.invoke([SystemMessage(content=prompt_content)] + state["messages"])
 
-            print(f"{result=}")
-
             if result.intent == "HOTEL":
                 return Command(
                     goto=result.intent,
                     update={"messages": [], "agent": result.intent},
                 )
-            
+
             if result.intent == "RESTAURANT":
                 return Command(
                     goto=result.intent,
@@ -288,7 +269,6 @@ def create_agent_node(
     """
 
     def agent_node_handler(state: AgentState) -> dict:
-        print(f"{state=}")
         try:
             format_kwargs = {
                 "assistantName": config["assistant"]["name"]
@@ -314,17 +294,15 @@ def create_agent_node(
                 [SystemMessage(system_prompt)] + state.get("messages", [])
             )
 
-            if response.tool_calls and len(response.tool_calls) >= 1:
-                return {
-                    "messages": [
-                        AIMessage(
-                            content=response.content, tool_calls=response.tool_calls[:1]
-                        )
-                    ],
-                    "agent": agent.type,
-                }
+            if response:
+                print(f"{response.content=}")
+            if response.tool_calls:
+                print(f"{response.tool_calls[:1]=}")
 
-            return {"messages": [response], "agent": agent.type}
+            return {
+                "messages": [response],
+                "agent": agent.type,
+            }
 
         except Exception as error:
             print(f"Error in agent node {agent.type}: {error}")

@@ -14,7 +14,7 @@ class RouteIntent(BaseModel):
     """Model for routing user requests"""
 
     intent: Literal["HOTEL", "RESTAURANT"] = Field(
-        description="The name of the expert agent to route to"
+        description="The name of the expert agent to route the request to"
     )
 
 
@@ -34,7 +34,7 @@ class Hotel(BaseModel):
     area: Area
     internet: Literal["yes", "no"]
     parking: Literal["yes", "no"]
-    location: List[float]
+    location: str
     phone: str
     postcode: str
     price: Price

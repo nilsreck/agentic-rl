@@ -1,14 +1,12 @@
 import argparse
-import asyncio
 import copy
 import json
 import uuid
-from pprint import pprint
+from random import random
 from typing import List
 
 from art import Trajectory
 from dotenv import load_dotenv
-from langgraph.checkpoint.memory import MemorySaver
 
 from convlab.base_models.t5.nlg.nlg import T5NLG
 from convlab.base_models.t5.nlu.nlu import T5NLU
@@ -70,10 +68,19 @@ def save_goals_to_jsonl(output_file: str, n_goals: int = 100):
             f.write(json.dumps(record) + "\n")
 
 
-def rollout(
+async def rollout(
     goal: Goal,
     dialogue_id: int,
 ) -> Trajectory:
+
+    traj = Trajectory(
+        reward=0.0,
+        messages_and_choices=[],
+        metadata={
+            "scenario_id": dialogue_id,
+        },
+    )
+    # Create a fresh copy of the goal to avoid state pollution
     fresh_goal = copy.deepcopy(goal)
 
     sys_policy = DialogueAgent()
@@ -102,24 +109,27 @@ def rollout(
 
     user_agent = PipelineAgent(user_nlu, user_dst, user_policy, user_nlg, name="user")
     # async with graph_semaphore:
-    # config = {
-    #     "configurable": {
-    #         "thread_id": str(uuid.uuid4()),
-    #     }
-    # }
-    config = {}
+    config = {
+        "configurable": {
+            "thread_id": str(uuid.uuid4()),
+        }
+    }
     print("Initialising analyzer")
     analyzer = Analyzer(user_agent=user_agent, dataset="multiwoz")
 
     reward, _ = analyzer.run_dialog_for_rl(
-        sys_agent=sys_agent, goal=fresh_goal, config=config  # Use fresh_goal instead of goal
+        sys_agent=sys_agent,
+        goal=fresh_goal,
+        config=config,  # Use fresh_goal instead of goal
     )
     print(f"{reward=}")
+
+    reward = random()
 
     try:
         return Trajectory(messages_and_choices=[], reward=reward)
     except Exception as e:
-        print(e)
+        print(f"Hallo ich bin ein Fehler: {e}")
 
     return Trajectory(messages_and_choices=[], reward=0)
 

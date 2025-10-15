@@ -60,12 +60,14 @@ def search_hotels(
 
     if hotels:
         hotel = Hotel(**hotels[0])
-        hotel.model_dump()
+        return hotel.model_dump()
+
+    return None
 
 
-END_CONVERSATION_TOOL: BaseTool = end_conversation
 QUERY_HOTELS: BaseTool = search_hotels
 BOOKING_TOOL: BaseTool = book_hotel
+END_CONVERSATION_TOOL: BaseTool = end_conversation
 
 
 class HotelBookingAgent(AgentSpec):

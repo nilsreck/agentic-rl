@@ -1,8 +1,9 @@
-from typing import List, Literal, Optional, Union
+import json
+from typing import Literal, Optional
 
 from agents.schemas import AgentConfig, AgentDescription, AgentSpec, AgentType
 from langchain.prompts import PromptTemplate
-from langchain_core.tools import BaseTool, StructuredTool, tool
+from langchain_core.tools import tool
 
 from convlab.e2e.multiwoz_dialogue_agent.state import FoodType, Price, Restaurant
 from convlab.util.unified_datasets_util import load_database
@@ -16,13 +17,12 @@ def end_conversation() -> str:
     return "Conversation ended"
 
 
-@tool
 def query_restaurants(
     name: Optional[str],
     location: Optional[Literal["north", "south", "east", "west", "centre"]] = None,
     pricerange: Optional[Price] = None,
     food: Optional[FoodType] = None,
-) -> dict | None:
+) -> str | None:
     """Query the restaurant database by various criteria."""
     database = load_database("multiwoz21")
 
@@ -37,12 +37,12 @@ def query_restaurants(
 
     restaurants = database.query("restaurant", {"restaurant": query_params}, topk=1)
     if restaurants:
+        print(restaurants)
         restaurant = Restaurant(**restaurants[0])
-        restaurant.model_dump()
+        print(restaurant)
+        return json.dumps(restaurant.model_dump())
 
-
-END_CONVERSATION_TOOL: BaseTool = end_conversation
-QUERY_RESTAURANTS_TOOL: BaseTool = query_restaurants
+    return None
 
 
 class RestaurantBookingAgent(AgentSpec):
@@ -64,5 +64,5 @@ class RestaurantBookingAgent(AgentSpec):
             description="Provides information about restaurants, can propose restaurants that satisfy the user's criteria and can book tables"
         )
 
-    def get_tools(self) -> List[Union[StructuredTool, BaseTool]]:
-        return [END_CONVERSATION_TOOL, QUERY_RESTAURANTS_TOOL]
+    def get_tools(self):
+        return [query_restaurants, end_conversation]

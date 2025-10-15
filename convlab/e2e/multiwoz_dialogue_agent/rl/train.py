@@ -40,7 +40,7 @@ def create_goal_from_dict(goal_dict: dict, goal_generator: GoalGenerator) -> Goa
     return goal_obj
 
 
-async def train():
+async def train(model: art.TrainableModel):
     # Declare the model
     model = art.TrainableModel(
         name="dialogue_agent-agent-001",
@@ -83,9 +83,9 @@ async def train():
     )
 
     training_config = {
-        "groups_per_step": 2,
+        "groups_per_step": 1,
         "num_epochs": 5,
-        "rollouts_per_group": 4,
+        "rollouts_per_group": 2,
         "learning_rate": 1e-5,
         "max_steps": 10,
     }
@@ -140,4 +140,4 @@ async def train():
 
 
 if __name__ == "__main__":
-    asyncio.run(train())
+    asyncio.run(train(None))

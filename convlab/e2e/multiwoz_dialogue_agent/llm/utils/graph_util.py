@@ -1,4 +1,3 @@
-from pprint import pprint
 import json
 import locale as locale_module
 import traceback
@@ -16,7 +15,7 @@ from langgraph.types import Command
 
 from convlab.e2e.multiwoz_dialogue_agent.state import AgentState, RouteIntent
 
-from convlab.e2e.multiwoz_dialogue_agent.llm.prompts.formality_prompts import (
+from ..prompts.formality_prompts import (
     ASSISTANT_FORMAL_PROMPT,
     ASSISTANT_INFORMAL_PROMPT,
 )
@@ -220,7 +219,7 @@ def create_agent_router_node(
 
             # output_schema = create_router_output_schema(agent_types)
 
-            # model_with_output = model.with_structured_output(RouteIntent)
+            model_with_output = model.with_structured_output(RouteIntent)
 
             agents_json = json.dumps(agent_descriptions, indent=2)
 
@@ -228,45 +227,33 @@ def create_agent_router_node(
                 agents=agents_json
             )
 
-            print(f"{state['messages']=}")
+            result = model_with_output.invoke([SystemMessage(content=prompt_content)] + state["messages"])
 
-            raw_text = model.invoke([SystemMessage(content=prompt_content)] + state["messages"])
+            print(f"{result=}")
 
-            # Step 1: Extract the string inside "content"
-            content_str = raw_text.content.strip()
-            print(f"{content_str=}")
-
-            # Step 2: Clean it into valid JSON
-            # The string is currently '"agent": "HOTEL"', which is not valid JSON.
-            # We wrap it in curly braces:
-            json_str = "{" + content_str + "}"
-
-            # Step 3: Parse it
-            parsed = json.loads(json_str)
-
-            # result = RouteIntent.model_validate(raw_text)
-            # print(f"{result=}")
-
-            if parsed['agent'] == "HOTEL":
+            if result.intent == "HOTEL":
                 return Command(
-                    goto=parsed['agent'],
-                    update={"messages": [], "agent": parsed['agent']},
+                    goto=result.intent,
+                    update={"messages": [], "agent": result.intent},
+                )
+            
+            if result.intent == "RESTAURANT":
+                return Command(
+                    goto=result.intent,
+                    update={"messages": [], "agent": result.intent},
                 )
 
-            if parsed['agent'] == "RESTAURANT":
-                return Command(
-                    goto=parsed['agent'],
-                    update={"messages": [], "agent": parsed['agent']},
-                )
-
-            return {"messages": [], "agent": parsed['agent']}
+            return {"messages": [], "agent": result.intent}
 
         except Exception as error:
             print(f"Error processing request: {error}")
             traceback.print_exc()
             if on_error:
                 print(f"{error=}")
-            return Command(goto="END")
+            return {
+                "messages": [],
+                "agent": "RESTAURANT",  
+            }
 
     return route_intent
 

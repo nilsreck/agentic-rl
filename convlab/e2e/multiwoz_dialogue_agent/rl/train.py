@@ -56,6 +56,7 @@ async def train():
         engine_args=art.dev.EngineArgs(
             enforce_eager=True,
             gpu_memory_utilization=0.8,
+            swap_space=0.0,
         ),
     )
 

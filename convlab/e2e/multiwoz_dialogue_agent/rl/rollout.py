@@ -8,6 +8,7 @@ from typing import List
 
 from art import Trajectory
 from dotenv import load_dotenv
+from langgraph.checkpoint.memory import MemorySaver
 
 from convlab.base_models.t5.nlg.nlg import T5NLG
 from convlab.base_models.t5.nlu.nlu import T5NLU
@@ -101,11 +102,12 @@ def rollout(
 
     user_agent = PipelineAgent(user_nlu, user_dst, user_policy, user_nlg, name="user")
     # async with graph_semaphore:
-    config = {
-        "configurable": {
-            "thread_id": str(uuid.uuid4()),
-        }
-    }
+    # config = {
+    #     "configurable": {
+    #         "thread_id": str(uuid.uuid4()),
+    #     }
+    # }
+    config = {}
     print("Initialising analyzer")
     analyzer = Analyzer(user_agent=user_agent, dataset="multiwoz")
 

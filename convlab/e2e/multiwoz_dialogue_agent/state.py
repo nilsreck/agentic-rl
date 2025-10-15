@@ -14,7 +14,7 @@ class RouteIntent(BaseModel):
     """Model for routing user requests"""
 
     intent: Literal["HOTEL", "RESTAURANT"] = Field(
-        description="The name of the expert agent to route the request to"
+        description="The name of the expert agent to route to"
     )
 
 

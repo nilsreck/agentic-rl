@@ -1,10 +1,10 @@
 import argparse
 import asyncio
+import copy
 import json
 import uuid
 from pprint import pprint
 from typing import List
-import copy 
 
 from art import Trajectory
 from dotenv import load_dotenv
@@ -73,10 +73,7 @@ def rollout(
     goal: Goal,
     dialogue_id: int,
 ) -> Trajectory:
-    # Create a fresh copy of the goal to avoid state pollution
     fresh_goal = copy.deepcopy(goal)
-    
-    pprint(f"GOAL: {goal}")
 
     sys_policy = DialogueAgent()
 
@@ -120,7 +117,7 @@ def rollout(
     try:
         return Trajectory(messages_and_choices=[], reward=reward)
     except Exception as e:
-        print(f"Hallo ich bin ein Fehler: {e}")
+        print(e)
 
     return Trajectory(messages_and_choices=[], reward=0)
 

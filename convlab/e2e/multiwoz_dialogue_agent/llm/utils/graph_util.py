@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Callable, List, Literal, Optional
 
 from art.langgraph.llm_wrapper import LoggingLLM
-from langchain_core.messages import AIMessage, SystemMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import END, START
 from langgraph.graph.state import RunnableConfig
@@ -37,6 +37,11 @@ AGENT_TOOL_NODE_MAP = {
 }
 
 ROUTER_NODE = "AGENT_ROUTER"
+
+
+def get_language_by_locale(locale: str) -> str:
+    """Extract language from locale string"""
+    return locale.split("-")[0] if "-" in locale else locale
 
 
 def get_current_locale_date_time(locale_str: str) -> str:
@@ -210,7 +215,9 @@ def create_agent_router_node(
                 agents=agents_json
             )
 
-            result = model_with_output.invoke([SystemMessage(content=prompt_content)] + state["messages"])
+            result = model_with_output.invoke(
+                [SystemMessage(content=prompt_content)] + state["messages"]
+            )
 
             if result.intent == "HOTEL":
                 return Command(
@@ -233,7 +240,7 @@ def create_agent_router_node(
                 print(f"{error=}")
             return {
                 "messages": [],
-                "agent": "RESTAURANT",  
+                "agent": "RESTAURANT",
             }
 
     return route_intent
@@ -288,6 +295,32 @@ def create_agent_node(
                 "language": get_language_by_locale(locale),
             }
 
+            print(f"{state=}")
+
+            belief_state = state["belief_state"]
+
+            last_message = state["messages"][-1]
+
+            if last_message and isinstance(last_message, ToolMessage):
+
+                if isinstance(last_message.content, str):
+                    try:
+                        tool_content = json.loads(last_message.content)
+
+                        if last_message.name == "search_hotels":
+                            db_entity = tool_content
+                            active_domain = "hotel"
+
+                            for slot, db_value in db_entity.items():
+                                if slot in belief_state[active_domain]:
+                                    if belief_state[active_domain][slot] != db_value:
+                                        belief_state[active_domain][slot] = db_value
+                                else:
+                                    belief_state[active_domain][slot] = db_value
+
+                    except (json.JSONDecodeError, KeyError):
+                        pass
+
             system_prompt = agent.get_system_prompt().format(**format_kwargs)
 
             response = model.bind_tools(agent.get_tools()).invoke(
@@ -299,6 +332,26 @@ def create_agent_node(
             if response.tool_calls:
                 print(f"{response.tool_calls[:1]=}")
 
+            if (
+                isinstance(response, AIMessage)
+                and hasattr(response, "tool_calls")
+                and response.tool_calls
+                and response.tool_calls[0].get("name") == "book_hotel"
+            ):
+                tool_call = response.tool_calls[0]
+                arguments = tool_call.get("args", {})
+
+                day = arguments.get("day")
+                people = arguments.get("people")
+                n_nights = arguments.get("n_nights")
+
+                print(
+                    f"book_hotel called with: day={day}, people={people}, n_nights={n_nights}"
+                )
+
+                belief_state["hotel"]["book day"] = str(day)
+                belief_state["hotel"]["book people"] = str(people)
+                belief_state["hotel"]["book stay"] = str(n_nights)
             return {
                 "messages": [response],
                 "agent": agent.type,
@@ -314,8 +367,3 @@ def create_agent_node(
             return {"messages": [], "agent": agent.type}
 
     return agent_node_handler
-
-
-def get_language_by_locale(locale: str) -> str:
-    """Extract language from locale string"""
-    return locale.split("-")[0] if "-" in locale else locale

@@ -3,14 +3,16 @@ from langgraph.checkpoint.memory import MemorySaver
 
 from convlab.dialog_agent import Agent
 from convlab.e2e.multiwoz_dialogue_agent.agent_graph import get_workflow
+from convlab.e2e.multiwoz_dialogue_agent.policy_utils import build_convlab3_empty_state
 from convlab.e2e.multiwoz_dialogue_agent.state import AgentState
 
 
 class DialogueAgent(Agent):
     def __init__(self, name="dialogue_agent"):
         super(DialogueAgent, self).__init__(name=name)
-        self.workflow = get_workflow().compile(checkpointer=MemorySaver())
+        self.workflow = get_workflow().compile()
         self.conversation_history = []
+        self.state = build_convlab3_empty_state()
 
     def response(self, observation, **kwargs):
         """Generate response using the dialogue agent graph.
@@ -27,6 +29,7 @@ class DialogueAgent(Agent):
         state: AgentState = {
             "messages": self.conversation_history.copy(),
             "agent": None,
+            "belief_state": self.state,
         }
 
         config = kwargs.get("config")
@@ -56,6 +59,7 @@ class DialogueAgent(Agent):
     def init_session(self, **kwargs):
         """Reset the conversation history for a new session."""
         self.conversation_history = []
+        self.belief_state = build_convlab3_empty_state()
 
 
 if __name__ == "__main__":

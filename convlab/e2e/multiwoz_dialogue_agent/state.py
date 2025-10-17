@@ -1,4 +1,4 @@
-from typing import List, Literal, Optional
+from typing import Dict, Literal, Optional, Tuple
 
 from langgraph.graph import MessagesState
 from pydantic import BaseModel, Field
@@ -8,6 +8,7 @@ from convlab.e2e.multiwoz_dialogue_agent.agents.schemas import AgentType
 
 class AgentState(MessagesState):
     agent: Optional[AgentType]
+    belief_state: Dict[str, Dict[str, str]]
 
 
 class RouteIntent(BaseModel):
@@ -34,7 +35,7 @@ class Hotel(BaseModel):
     area: Area
     internet: Literal["yes", "no"]
     parking: Literal["yes", "no"]
-    location: str
+    location: Tuple[float, float]
     phone: str
     postcode: str
     price: Price
@@ -86,4 +87,4 @@ class Restaurant(BaseModel):
 
 
 class Booking(BaseModel):
-    booking_number: Literal["00000000"]
+    booking_number: Literal["00000000", "00000011"]

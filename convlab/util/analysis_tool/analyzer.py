@@ -161,6 +161,8 @@ class Analyzer:
             sess.init_session()
             dialog_saver.new_conversation()
 
+            pprint(f"'Goal': {sess.evaluator.goal}")
+
             usr_da_list = []
             failed_da_sys = []
             failed_da_usr = []

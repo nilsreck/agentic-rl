@@ -19,13 +19,13 @@ def end_conversation() -> str:
 @tool
 def book_hotel(
     day: Literal[
-        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
     ],
     people: int,
     n_nights: int,
 ) -> dict:
     "Make a reservation that returns a made-up booking number"
-    booking = Booking(booking_number="00000000")
+    booking = Booking(booking_number="00000011")
     return booking.model_dump()
 
 
@@ -39,7 +39,7 @@ def search_hotels(
     internet: Optional[Literal["yes", "no"]] = None,
     parking: Optional[Literal["yes", "no"]] = None,
     takesbookings: Optional[Literal["yes", "no"]] = None,
-) -> dict | None:
+) -> dict | str:
     """Query the hotel database by various criteria."""
     database = load_database("multiwoz21")
 
@@ -62,7 +62,7 @@ def search_hotels(
         hotel = Hotel(**hotels[0])
         return hotel.model_dump()
 
-    return None
+    return "There are no hotels that satisfy the user's request parameters"
 
 
 QUERY_HOTELS: BaseTool = search_hotels

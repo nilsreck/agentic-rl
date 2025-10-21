@@ -1,11 +1,10 @@
-import json
 from typing import Literal, Optional
 
 from agents.schemas import AgentConfig, AgentDescription, AgentSpec, AgentType
 from langchain.prompts import PromptTemplate
 from langchain_core.tools import tool
 
-from convlab.e2e.multiwoz_dialogue_agent.state import FoodType, Price, Restaurant
+from convlab.e2e.multiwoz_dialogue_agent.state import Booking, FoodType, Restaurant
 from convlab.util.unified_datasets_util import load_database
 
 from .system_prompt import RESTAURANT_AGENT_SYSTEM_INSTRUCTION
@@ -17,13 +16,40 @@ def end_conversation() -> str:
     return "Conversation ended"
 
 
-def query_restaurants(
-    name: Optional[str],
+@tool(description="A tool to book a table at a restaurant.")
+def book_table(
+    restaurant_name: str,
+    day: Literal[
+        "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
+    ],
+    people: int,
+    time: str,
+) -> dict | str:
+    "Make a reservation that returns a booking number"
+    database = load_database("multiwoz21")
+
+    restaurants = database.query(
+        "restaurant", {"restaurant": {"name": restaurant_name.lower()}}, topk=1
+    )
+
+    if restaurants:
+        restaurant = Restaurant(**restaurants[0])
+        booking = Booking(booking_number=restaurant.Ref)
+        return booking.model_dump()
+
+    return "Restaurant could not be found."
+
+
+@tool(
+    description="A database lookup for restaurants. Useful for when you need to check if there exist hotels that satisfy the user's criteria"
+)
+def search_restaurants(
+    name: Optional[str] = None,
     location: Optional[Literal["north", "south", "east", "west", "centre"]] = None,
-    pricerange: Optional[Price] = None,
+    pricerange: Optional[Literal["cheap", "moderate", "expensive"]] = None,
     food: Optional[FoodType] = None,
-) -> str | None:
-    """Query the restaurant database by various criteria."""
+) -> dict | str:
+    """Query the restaurant database by various, mostly optional criteria."""
     database = load_database("multiwoz21")
 
     params = {
@@ -37,12 +63,10 @@ def query_restaurants(
 
     restaurants = database.query("restaurant", {"restaurant": query_params}, topk=1)
     if restaurants:
-        print(restaurants)
         restaurant = Restaurant(**restaurants[0])
-        print(restaurant)
-        return json.dumps(restaurant.model_dump())
+        return restaurant.model_dump()
 
-    return None
+    return "There are no restaurants that satisfy the user's request parameters"
 
 
 class RestaurantBookingAgent(AgentSpec):
@@ -65,4 +89,4 @@ class RestaurantBookingAgent(AgentSpec):
         )
 
     def get_tools(self):
-        return [query_restaurants, end_conversation]
+        return [search_restaurants, book_table, end_conversation]

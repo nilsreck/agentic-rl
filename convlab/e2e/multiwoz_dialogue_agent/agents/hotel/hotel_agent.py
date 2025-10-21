@@ -16,20 +16,33 @@ def end_conversation() -> str:
     return "Conversation ended"
 
 
-@tool
+@tool(
+    description="A tool to book a stay at a hotel according to the user's request parameters"
+)
 def book_hotel(
+    hotel_name: str,
     day: Literal[
         "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"
     ],
     people: int,
     n_nights: int,
-) -> dict:
-    "Make a reservation that returns a made-up booking number"
-    booking = Booking(booking_number="00000011")
-    return booking.model_dump()
+) -> dict | str:
+    "Make a reservation that returns a booking number"
+    database = load_database("multiwoz21")
+
+    hotels = database.query("hotel", {"hotel": {"name": hotel_name.lower()}}, topk=1)
+
+    if hotels:
+        hotel = Hotel(**hotels[0])
+        booking = Booking(booking_number=hotel.Ref)
+        return booking.model_dump()
+
+    return "Hotel could not be found."
 
 
-@tool
+@tool(
+    description="A database lookup for hotels. Useful for when you need to check if there exist hotels that satisfy the user's criteria"
+)
 def search_hotels(
     name: Optional[str] = None,
     location: Optional[Area] = None,
@@ -37,7 +50,7 @@ def search_hotels(
     stars: Optional[Literal["0", "2", "3", "4"]] = None,
     hotel_type: Optional[Literal["hotel", "guesthouse"]] = None,
     internet: Optional[Literal["yes", "no"]] = None,
-    parking: Optional[Literal["yes", "no"]] = None,
+    parking: Optional[Literal["yes"]] = None,
     takesbookings: Optional[Literal["yes", "no"]] = None,
 ) -> dict | str:
     """Query the hotel database by various criteria."""

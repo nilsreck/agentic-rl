@@ -24,6 +24,8 @@ class DialogueAgent(Agent):
             str: Assistant response
         """
         user_message = HumanMessage(content=observation)
+        user_message.pretty_print()
+
         self.conversation_history.append(user_message)
 
         state: AgentState = {
@@ -41,6 +43,7 @@ class DialogueAgent(Agent):
                 last_message = result["messages"][-1]
                 if isinstance(last_message, AIMessage):
                     response_text = last_message.content
+                    last_message.pretty_print()
                     self.conversation_history.append(AIMessage(content=response_text))
                     return response_text
                 elif hasattr(last_message, "content"):

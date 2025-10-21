@@ -295,6 +295,11 @@ def create_agent_node(
                 "language": get_language_by_locale(locale),
             }
 
+            system_prompt = agent.get_system_prompt().format(**format_kwargs)
+
+            response = model.bind_tools(agent.get_tools()).invoke(
+                [SystemMessage(system_prompt)] + state.get("messages", [])
+            )
             print(f"{state=}")
 
             belief_state = state["belief_state"]
@@ -302,14 +307,17 @@ def create_agent_node(
             last_message = state["messages"][-1]
 
             if last_message and isinstance(last_message, ToolMessage):
-
                 if isinstance(last_message.content, str):
                     try:
                         tool_content = json.loads(last_message.content)
 
-                        if last_message.name == "search_hotels":
+                        if last_message.name in ["search_hotels", "search_restaurants"]:
                             db_entity = tool_content
-                            active_domain = "hotel"
+                            active_domain = (
+                                state["agent"].value.lower()
+                                if state["agent"]
+                                else "unknown"
+                            )
 
                             for slot, db_value in db_entity.items():
                                 if slot in belief_state[active_domain]:
@@ -321,37 +329,35 @@ def create_agent_node(
                     except (json.JSONDecodeError, KeyError):
                         pass
 
-            system_prompt = agent.get_system_prompt().format(**format_kwargs)
-
-            response = model.bind_tools(agent.get_tools()).invoke(
-                [SystemMessage(system_prompt)] + state.get("messages", [])
-            )
-
-            if response:
-                print(f"{response.content=}")
-            if response.tool_calls:
-                print(f"{response.tool_calls[:1]=}")
-
             if (
                 isinstance(response, AIMessage)
                 and hasattr(response, "tool_calls")
                 and response.tool_calls
-                and response.tool_calls[0].get("name") == "book_hotel"
             ):
-                tool_call = response.tool_calls[0]
-                arguments = tool_call.get("args", {})
+                if response.tool_calls[0].get("name") == "book_hotel":
+                    tool_call = response.tool_calls[0]
+                    arguments = tool_call.get("args", {})
 
-                day = arguments.get("day")
-                people = arguments.get("people")
-                n_nights = arguments.get("n_nights")
+                    day = arguments.get("day")
+                    people = arguments.get("people")
+                    n_nights = arguments.get("n_nights")
 
-                print(
-                    f"book_hotel called with: day={day}, people={people}, n_nights={n_nights}"
-                )
+                    belief_state["hotel"]["book day"] = str(day)
+                    belief_state["hotel"]["book people"] = str(people)
+                    belief_state["hotel"]["book stay"] = str(n_nights)
 
-                belief_state["hotel"]["book day"] = str(day)
-                belief_state["hotel"]["book people"] = str(people)
-                belief_state["hotel"]["book stay"] = str(n_nights)
+                if response.tool_calls[0].get("name") == "book_table":
+                    tool_call = response.tool_calls[0]
+                    arguments = tool_call.get("args", {})
+
+                    day = arguments.get("day")
+                    people = arguments.get("people")
+                    time = arguments.get("time")
+
+                    belief_state["restaurant"]["book day"] = str(day)
+                    belief_state["restaurant"]["book people"] = str(people)
+                    belief_state["restaurant"]["book time"] = str(time)
+
             return {
                 "messages": [response],
                 "agent": agent.type,

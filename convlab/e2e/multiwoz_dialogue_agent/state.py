@@ -22,7 +22,7 @@ class RouteIntent(BaseModel):
 class Price(BaseModel):
     single: str
     double: str
-    family: str
+    family: str | None = None
 
 
 Area = Literal["north", "east", "west", "south", "centre"]
@@ -43,6 +43,7 @@ class Hotel(BaseModel):
     stars: Literal["0", "2", "3", "4"]
     takesbookings: Literal["yes", "no"]
     type: Literal["hotel", "guesthouse"]
+    Ref: str
 
 
 FoodType = Literal[
@@ -84,7 +85,8 @@ class Restaurant(BaseModel):
     pricerange: Literal["cheap", "moderate", "expensive"]
     type: Literal["restaurant"]
     signature: Optional[str] = None
+    Ref: str
 
 
 class Booking(BaseModel):
-    booking_number: Literal["00000000", "00000011"]
+    booking_number: str

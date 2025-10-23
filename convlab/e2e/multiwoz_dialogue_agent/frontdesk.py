@@ -62,7 +62,7 @@ class DialogueAgent(Agent):
     def init_session(self, **kwargs):
         """Reset the conversation history for a new session."""
         self.conversation_history = []
-        self.belief_state = build_convlab3_empty_state()
+        self.state = build_convlab3_empty_state()
 
 
 if __name__ == "__main__":

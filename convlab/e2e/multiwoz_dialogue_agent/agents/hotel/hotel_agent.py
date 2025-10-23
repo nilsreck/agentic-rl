@@ -72,7 +72,11 @@ def search_hotels(
     hotels = database.query("hotel", {"hotel": query_params}, topk=1)
 
     if hotels:
-        hotel = Hotel(**hotels[0])
+        hotel_data = hotels[0]
+        # fix error in dataset
+        if "takesbookings" not in hotel_data and "n" in hotel_data:
+            hotel_data["takesbookings"] = hotel_data["n"]
+        hotel = Hotel(**hotel_data)
         return hotel.model_dump()
 
     return "There are no hotels that satisfy the user's request parameters"

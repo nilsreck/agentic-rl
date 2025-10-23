@@ -20,8 +20,8 @@ class RouteIntent(BaseModel):
 
 
 class Price(BaseModel):
-    single: str
-    double: str
+    single: str | None = None
+    double: str | None = None
     family: str | None = None
 
 
@@ -58,6 +58,7 @@ FoodType = Literal[
     "gastropub",
     "vietnamese",
     "french",
+    "spanish",
     "lebanese",
     "japanese",
     "korean",

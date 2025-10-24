@@ -98,22 +98,22 @@ def get_workflow():
             HotelBookingAgent(),
             RestaurantBookingAgent(),
         ],
-        # agent_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
-        # router_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
-        agent_client=create_openai_client(
-            model=assistant_config.get("models", {})
-            .get("chat", {})
-            .get("model", AGENT_GPT_MODEL_ID),
-            temperature=AGENT_MODEL_TEMPERATURE,
-            max_tokens=AGENT_MODEL_MAX_TOKENS,
-        ),
-        router_client=create_openai_client(
-            model=assistant_config.get("models", {})
-            .get("router", {})
-            .get("model", ROUTER_GPT_MODEL_ID),
-            temperature=ROUTER_MODEL_TEMPERATURE,
-            max_tokens=ROUTER_MODEL_MAX_TOKENS,
-        ),
+        agent_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
+        router_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
+        # agent_client=create_openai_client(
+        #     model=assistant_config.get("models", {})
+        #     .get("chat", {})
+        #     .get("model", AGENT_GPT_MODEL_ID),
+        #     temperature=AGENT_MODEL_TEMPERATURE,
+        #     max_tokens=AGENT_MODEL_MAX_TOKENS,
+        # ),
+        # router_client=create_openai_client(
+        #     model=assistant_config.get("models", {})
+        #     .get("router", {})
+        #     .get("model", ROUTER_GPT_MODEL_ID),
+        #     temperature=ROUTER_MODEL_TEMPERATURE,
+        #     max_tokens=ROUTER_MODEL_MAX_TOKENS,
+        # ),
     )
 
     return new_workflow

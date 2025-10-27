@@ -125,11 +125,9 @@ async def rollout(
     reward, _ = analyzer.run_dialog_for_rl(
         sys_agent=sys_agent,
         goal=fresh_goal,
-        config=config,  # Use fresh_goal instead of goal
+        config=config,
     )
     print(f"{reward=}")
-
-    reward = random()
 
     try:
         return Trajectory(messages_and_choices=[], reward=reward)

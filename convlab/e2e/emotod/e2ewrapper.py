@@ -19,9 +19,9 @@ class E2EAgentWrapper(Agent):
         self.policy.init_session()
         self.dst.init_session()
 
-    def response(self, observation):
+    def response(self, observation, **kwargs):
         self.dst.state["belief_state"] = self.policy.state
-        return self.policy.response(observation)
+        return self.policy.response(observation, **kwargs)
 
     def get_in_da(self):
         return None

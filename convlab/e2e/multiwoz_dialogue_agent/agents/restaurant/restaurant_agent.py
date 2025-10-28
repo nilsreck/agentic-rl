@@ -16,7 +16,7 @@ def end_conversation() -> str:
     return "Conversation ended"
 
 
-@tool(description="A tool to book a table at a restaurant.")
+@tool
 def book_table(
     restaurant_name: str,
     day: Literal[
@@ -25,7 +25,16 @@ def book_table(
     people: int,
     time: str,
 ) -> dict | str:
-    "Make a reservation that returns a booking number"
+    """Tool to book a table at a restaurant.
+
+    Args:
+        restaurant_name: Name of the restaurant
+        people: Number of people to book for
+        time: At what time to book the table
+
+    Returns:
+        Booking record or failure message
+    """
     database = load_database("multiwoz21")
 
     restaurants = database.query(
@@ -49,7 +58,17 @@ def search_restaurants(
     pricerange: Optional[Literal["cheap", "moderate", "expensive"]] = None,
     food: Optional[FoodType] = None,
 ) -> dict | str:
-    """Query the restaurant database by various, mostly optional criteria."""
+    """Database lookup for restaurants. Useful for when you need to check if there exist hotels that satisfy the user's criteria
+
+    Args:
+        name: Name of the restaurant
+        location: Location of the restaurant
+        pricerange: Pricerange of the restaurant
+        food: Type of food the restaurant serves
+
+    Returns:
+        Restaurant record or failure message
+    """
     database = load_database("multiwoz21")
 
     params = {

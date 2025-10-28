@@ -16,9 +16,7 @@ def end_conversation() -> str:
     return "Conversation ended"
 
 
-@tool(
-    description="A tool to book a stay at a hotel according to the user's request parameters"
-)
+@tool
 def book_hotel(
     hotel_name: str,
     day: Literal[
@@ -27,7 +25,16 @@ def book_hotel(
     people: int,
     n_nights: int,
 ) -> dict | str:
-    "Make a reservation that returns a booking number"
+    """A tool to book a stay at a hotel according to the user's request parameters
+
+    Args:
+        hotel_name: Name of the hotel
+        people: Number of people to book for
+        n_nights: Duration of the stay
+
+    Returns:
+        Booking record or failure message
+    """
     database = load_database("multiwoz21")
 
     hotels = database.query("hotel", {"hotel": {"name": hotel_name.lower()}}, topk=1)
@@ -40,9 +47,7 @@ def book_hotel(
     return "Hotel could not be found."
 
 
-@tool(
-    description="A database lookup for hotels. Useful for when you need to check if there exist hotels that satisfy the user's criteria"
-)
+@tool
 def search_hotels(
     name: Optional[str] = None,
     location: Optional[Area] = None,
@@ -53,7 +58,21 @@ def search_hotels(
     parking: Optional[Literal["yes"]] = None,
     takesbookings: Optional[Literal["yes", "no"]] = None,
 ) -> dict | str:
-    """Query the hotel database by various criteria."""
+    """Database lookup for hotels. Useful for when you need to check if there exist hotels that satisfy the user's criteria.
+
+    Args:
+        name: Name of the hotel
+        location: Location of the hotel
+        pricerange: Pricerange of the hotel
+        stars: Official star rating of the hotel
+        hotel_type: Property type of the hotel
+        internet: Whether the hotel offers free internet access
+        parking: Whether the hotel offers free parking
+        takesabookings: Whether the hotel accepts bookings
+
+    Returns:
+        Hotel record or failure message
+    """
     database = load_database("multiwoz21")
 
     params = {

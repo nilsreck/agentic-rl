@@ -6,7 +6,13 @@ from enum import Enum
 from typing import Callable, List, Literal, Optional
 
 from art.langgraph.llm_wrapper import LoggingLLM
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+    get_buffer_string,
+)
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import END, START
 from langgraph.graph.state import RunnableConfig
@@ -212,36 +218,31 @@ def create_agent_router_node(
             agents_json = json.dumps(agent_descriptions, indent=2)
 
             prompt_content = ROUTER_SYSTEM_INSTRUCTION_TEMPLATE.format(
-                agents=agents_json
+                agents=agents_json, messages=get_buffer_string(state["messages"])
             )
 
-            result = model_with_output.invoke(
-                [SystemMessage(content=prompt_content)] + state["messages"]
+            result = model_with_output.with_retry(stop_after_attempt=3).invoke(
+                [SystemMessage(content=prompt_content)]
             )
 
             if result.intent == "HOTEL":
                 return Command(
                     goto=result.intent,
-                    update={"messages": [], "agent": result.intent},
+                    update={"agent": result.intent},
                 )
 
             if result.intent == "RESTAURANT":
                 return Command(
                     goto=result.intent,
-                    update={"messages": [], "agent": result.intent},
+                    update={"agent": result.intent},
                 )
 
-            return {"messages": [], "agent": result.intent}
+            return {"agent": result.intent}
 
         except Exception as error:
-            print(f"Error processing request: {error}")
-            traceback.print_exc()
             if on_error:
-                print(f"{error=}")
-            return {
-                "messages": [],
-                "agent": "RESTAURANT",
-            }
+                print(f"Router failed")
+            return Command(goto="END")
 
     return route_intent
 
@@ -292,7 +293,8 @@ def create_agent_node(
                 "businessSector": config["business"]["sector"],
                 "businessDescription": DEFAULT_BUSINESS_DESCRIPTION,
                 "dateTime": get_current_locale_date_time(SYSTEM_PROMPT_LOCALE),
-                "language": get_language_by_locale(locale),
+                "language": "English",
+                "messages": get_buffer_string(state["messages"]),
             }
 
             system_prompt = agent.get_system_prompt().format(**format_kwargs)
@@ -300,7 +302,8 @@ def create_agent_node(
             response = model.bind_tools(agent.get_tools()).invoke(
                 [SystemMessage(system_prompt)] + state.get("messages", [])
             )
-            print(f"{state=}")
+
+            # print(f"{state=}")
 
             belief_state = state["belief_state"]
 
@@ -358,10 +361,9 @@ def create_agent_node(
                     belief_state["restaurant"]["book people"] = str(people)
                     belief_state["restaurant"]["book time"] = str(time)
 
-            return {
-                "messages": [response],
-                "agent": agent.type,
-            }
+            return Command(
+                goto=END, update={"messages": [response], "agent": agent.type}
+            )
 
         except Exception as error:
             print(f"Error in agent node {agent.type}: {error}")

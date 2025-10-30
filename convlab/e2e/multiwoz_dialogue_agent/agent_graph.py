@@ -98,8 +98,8 @@ def get_workflow():
             HotelBookingAgent(),
             RestaurantBookingAgent(),
         ],
-        agent_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
-        router_client=train_model(name="dialogue_agent-agent-001", temperature=1.0),
+        agent_client=train_model(),
+        router_client=train_model(),
         # agent_client=create_openai_client(
         #     model=assistant_config.get("models", {})
         #     .get("chat", {})

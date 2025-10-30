@@ -33,7 +33,7 @@ def create_goal_from_dict(goal_dict: dict, goal_generator: GoalGenerator) -> Goa
 
 def load_scenarios_from_jsonl(jsonl_file: str) -> List[Scenario]:
     goal_generator = GoalGenerator(
-        corpus_path="/home/user/reck/ConvLab3-thesis/data/multiwoz/train.json",
+        corpus_path="/root/sky_workdir/data/multiwoz/train.json",
         sample_reqt_from_trainset=True,
     )
 
@@ -82,7 +82,7 @@ async def collect_training_data(model: art.Model, sft_scenarios: List[Scenario])
                 }
             )
 
-    with open("training-data.jsonl", "w") as f:
+    with open("/data/training-data.jsonl", "w") as f:
         for data in training_data:
             f.write(json.dumps(data) + "\n")
 
@@ -108,7 +108,7 @@ async def train(model: art.TrainableModel):
     )
 
     all_scenarios = load_scenarios_from_jsonl(
-        "/home/user/reck/ConvLab3-thesis/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
+        "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
     )
 
     train_scenarios: List[Scenario] = []

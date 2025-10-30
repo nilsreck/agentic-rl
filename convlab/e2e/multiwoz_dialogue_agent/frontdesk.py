@@ -10,7 +10,7 @@ from convlab.e2e.multiwoz_dialogue_agent.state import AgentState
 class DialogueAgent(Agent):
     def __init__(self, name="dialogue_agent"):
         super(DialogueAgent, self).__init__(name=name)
-        self.workflow = get_workflow().compile(MemorySaver())
+        self.workflow = get_workflow().compile(checkpointer=MemorySaver())
         self.conversation_history = []
         self.state = build_convlab3_empty_state()
 
@@ -44,12 +44,11 @@ class DialogueAgent(Agent):
                 if isinstance(last_message, AIMessage):
                     response_text = last_message.content
                     last_message.pretty_print()
-                    self.conversation_history.append(AIMessage(content=response_text))
+                    self.conversation_history = result["messages"]
                     return response_text
-                elif hasattr(last_message, "content"):
-                    response_text = str(last_message.content)
-                    self.conversation_history.append(AIMessage(content=response_text))
-                    return response_text
+                # elif hasattr(last_message, "content"):
+                #     response_text = str(last_message.content)
+                #     return response_text
                 else:
                     return "I'm sorry, I couldn't process your request."
             else:

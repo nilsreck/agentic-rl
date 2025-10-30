@@ -12,10 +12,10 @@ class AgentState(MessagesState):
 
 
 class RouteIntent(BaseModel):
-    """Model for routing user requests"""
+    """Routing decision for user requests"""
 
     intent: Literal["HOTEL", "RESTAURANT"] = Field(
-        description="The name of the expert agent to route the request to"
+        description="Target agent to handle the request"
     )
 
 

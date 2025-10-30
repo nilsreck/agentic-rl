@@ -1,0 +1,1 @@
+{"id": 30, "goal": {"hotel": {"info": {"area": "centre", "parking": "yes", "stars": "3"}, "reqt": {"postcode": "?"}, "fail_info": {"area": "centre", "parking": "no", "stars": "3"}}, "domain_ordering": ["hotel"]}}

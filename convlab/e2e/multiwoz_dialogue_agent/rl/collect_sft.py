@@ -82,7 +82,10 @@ async def collect_training_data(model: art.Model, sft_scenarios: List[Scenario])
                 }
             )
 
-    with open("/data/training-data.jsonl", "w") as f:
+    with open(
+        "data/training-data.jsonl",
+        "w",
+    ) as f:
         for data in training_data:
             f.write(json.dumps(data) + "\n")
 

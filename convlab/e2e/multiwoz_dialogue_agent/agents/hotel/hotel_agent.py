@@ -55,7 +55,7 @@ def search_hotels(
     stars: Optional[Literal["0", "2", "3", "4"]] = None,
     hotel_type: Optional[Literal["hotel", "guesthouse"]] = None,
     internet: Optional[Literal["yes", "no"]] = None,
-    parking: Optional[Literal["yes"]] = None,
+    parking: Optional[Literal["yes", "no"]] = None,
     takesbookings: Optional[Literal["yes", "no"]] = None,
 ) -> dict | str:
     """Database lookup for hotels. Useful for when you need to check if there exist hotels that satisfy the user's criteria.

@@ -1,142 +1,157 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from langchain_core.messages import AIMessage
+
+# Monkeypatch the AIMessage init to auto-fix args
+_original_init = AIMessage.__init__
+
+
+def _patched_init(self, **kwargs):
+    tool_calls = kwargs.get("tool_calls", [])
+    for call in tool_calls:
+        if isinstance(call.get("args"), str):
+            try:
+                print(call["args"])
+                call["args"] = json.loads(call["args"])
+            except json.JSONDecodeError:
+                call["args"] = {}
+    _original_init(self, **kwargs)
+
+
+AIMessage.__init__ = _patched_init
+
 import asyncio
+import io
 import json
+import os
 import random
+import statistics
+import threading
+import zipfile
+from dataclasses import dataclass
 from typing import List
 
 import art
+
+# import torch
+import polars as pl
+import requests
+import tenacity
 from art.langgraph import wrap_rollout
 from art.local import LocalBackend
+from art.rewards import ruler_score_group
 from art.utils import iterate_dataset
-
-from convlab.e2e.multiwoz_dialogue_agent.rl.rollout import rollout
-from convlab.e2e.multiwoz_dialogue_agent.rl.collect_sft import Scenario
-from convlab.policy.rule.multiwoz.policy_agenda_multiwoz import Goal
-from convlab.task.multiwoz.goal_generator import GoalGenerator
+from rollout import rollout
+from tqdm.asyncio import tqdm
 
 
-def load_scenarios_from_jsonl(jsonl_file: str) -> List[Scenario]:
-    goal_generator = GoalGenerator(
-        corpus_path="/home/user/reck/ConvLab3-thesis/data/multiwoz/train.json",
-        sample_reqt_from_trainset=True,
+@dataclass
+class Scenario:
+    prompt: str
+    prompt_id: str
+
+
+async def benchmark_model(model: art.Model, val_scenarios: List[Scenario]):
+    val_scenarios = val_scenarios + val_scenarios
+
+    val_trajectories = await tqdm.gather(
+        *(
+            wrap_rollout(model, rollout)(scenario.prompt, scenario.prompt_id)
+            for scenario in val_scenarios
+        ),
+        desc=f"validation {model.name}",
     )
 
-    scenarios = []
+    valid_trajectories = [t for t in val_trajectories if isinstance(t, art.Trajectory)]
 
-    with open(jsonl_file, "r") as f:
-        for line in f:
-            record = json.loads(line.strip())
+    if model._backend is not None:
+        await model.log(valid_trajectories)
 
-            goal_obj = create_goal_from_dict(record["goal"], goal_generator)
+    metrics = pl.DataFrame(
+        [{**t.metrics, "reward": t.reward} for t in valid_trajectories]
+    )
 
-            scenario = Scenario(goal=goal_obj, prompt_id=str(record["id"]))
-            scenarios.append(scenario)
+    avg_metrics = metrics.select(
+        [pl.mean(c).alias(c) for c in metrics.columns]
+    ).with_columns(pl.lit(len(valid_trajectories)).alias("n_trajectories"))
+    print(avg_metrics)
 
-    return scenarios
-
-
-def create_goal_from_dict(goal_dict: dict, goal_generator: GoalGenerator) -> Goal:
-    goal_obj = Goal(goal_generator=goal_generator)
-    goal_obj.set_user_goal(user_goal=goal_dict)
-    return goal_obj
+    return avg_metrics
 
 
 async def train(model: art.TrainableModel):
-    # Declare the model
-    model = art.TrainableModel(
-        name="dialogue_agent-agent-001",
-        project="dialogue_agent-agent-langgraph",
-        base_model="Qwen/Qwen2.5-7B-Instruct",
-    )
-
-    # To run on a T4, we need to override some config defaults.
-    model._internal_config = art.dev.InternalModelConfig(
-        init_args=art.dev.InitArgs(
-            max_seq_length=8192,
-        ),
-        engine_args=art.dev.EngineArgs(
-            enforce_eager=True,
-            gpu_memory_utilization=0.8,
-            swap_space=0.0,
-        ),
-    )
-
-    # Initialize the server
-    backend = LocalBackend(
-        path="./.art",
-    )
-
-    # Register the model with the local Backend (sets up logging, inference, and training)
-    await model.register(backend)
-
-    all_scenarios = load_scenarios_from_jsonl(
-        "/home/user/reck/ConvLab3-thesis/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
-    )
-
-    random.seed(42)
-    random.shuffle(all_scenarios)
-    split_idx = int(0.8 * len(all_scenarios))
-    training_scenarios = all_scenarios[:split_idx]
-    validation_scenarios = all_scenarios[split_idx:]
-
-    print(
-        f"Loaded {len(training_scenarios)} training scenarios and {len(validation_scenarios)} validation scenarios"
-    )
-
-    training_config = {
-        "groups_per_step": 1,
-        "num_epochs": 5,
-        "rollouts_per_group": 2,
-        "learning_rate": 1e-5,
-        "max_steps": 10,
-    }
-
-    # Use iterate_dataset with real training scenarios
-    training_iterator = iterate_dataset(
-        training_scenarios,
-        groups_per_step=training_config["groups_per_step"],
-        num_epochs=training_config["num_epochs"],
-        initial_step=await model.get_step(),
-    )
-
-    for batch in training_iterator:
-        print(
-            f"Training step {batch.step}, epoch {batch.epoch}, epoch step {batch.epoch_step}"
+    with LocalBackend() as backend:
+        model = art.TrainableModel(
+            name="sft-convlab",
+            project="convlab",
+            base_model="unsloth/Qwen2.5-14B-Instruct",
         )
-        print(f"Batch contains {len(batch.items)} scenarios")
+        backend._experimental_pull_from_s3(model, s3_bucket=os.environ["BACKUP_BUCKET"])
 
-        # Create trajectory groups for this batch
-        groups = []
-        for scenario in batch.items:
-            print(f"Creating trajectory group for scenario {scenario.prompt_id} and goal {scenario.goal}")
-            groups.append(
-                art.TrajectoryGroup(
-                    (
-                        wrap_rollout(model, rollout)(scenario.goal, scenario.prompt_id)
-                        for _ in range(training_config["rollouts_per_group"])
+        await model.register(backend)
+
+        train_scenarios: List[Scenario] = []
+        val_scenarios: List[Scenario] = []
+        sft_scenarios: List[Scenario] = []
+
+        PROMPT_FILE = "convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
+        with open(PROMPT_FILE) as f:
+            for line in f.readlines():
+                obj = json.loads(line)
+                if (obj["id"] - 1) % 50 >= 45:
+                    val_scenarios.append(
+                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
                     )
+                elif (obj["id"] - 1) % 50 >= 20:
+                    sft_scenarios.append(
+                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
+                    )
+                else:
+                    train_scenarios.append(
+                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
+                    )
+
+        random.seed(23)
+        random.shuffle(train_scenarios)
+
+        train_iterator = iterate_dataset(
+            train_scenarios,
+            groups_per_step=1,
+            num_epochs=3,
+            initial_step=await model.get_step(),
+        )
+
+        for batch in train_iterator:
+            if (batch.step) % 10 == 0:
+                print(f"\n--- Evaluating at Iteration {batch.step} ---")
+                await benchmark_model(model, val_scenarios)
+                await backend._experimental_push_to_s3(
+                    model,
+                    s3_bucket=os.environ["BACKUP_BUCKET"],
                 )
+                await model.delete_checkpoints()
+
+            groups = await art.gather_trajectory_groups(
+                (
+                    art.TrajectoryGroup(
+                        (
+                            wrap_rollout(model, rollout)(
+                                scenario.prompt, scenario.prompt_id
+                            )
+                            for _ in range(16)
+                        )
+                    )
+                    for scenario in batch.items
+                ),
             )
 
-        # Gather all trajectory groups
-        finished_groups = await art.gather_trajectory_groups(
-            groups,
-            pbar_desc="gather",
-            max_exceptions=training_config["rollouts_per_group"] * len(batch.items),
-        )
-
-        await model.delete_checkpoints()
-        await model.train(
-            finished_groups,
-            config=art.TrainConfig(learning_rate=training_config["learning_rate"]),
-            # Lowering the logprob_calculation_chunk_size is a memory saving measure
-            # to allow longer sequences (up to 8192 tokens) to be processed on a T4.
-            _config={"logprob_calculation_chunk_size": 8},
-        )
-
-        print(f"Completed training step {batch.step}")
-
-        if batch.step >= training_config["max_steps"]:
-            break
+            await model.train(
+                groups,
+                _config=art.dev.TrainConfig(precalculate_logprobs=False),
+            )
+        print("Training finished.")
 
 
 if __name__ == "__main__":

@@ -89,7 +89,7 @@ class UserPolicyAgendaMultiWoz(Policy):
         self.max_turn = 40
         self.max_initiative = 4
         self.goal_generator = GoalGenerator(
-            corpus_path="/home/user/reck/ConvLab3-thesis/data/multiwoz/train.json",
+            corpus_path="/root/sky_workdir/data/multiwoz/train.json",
             sample_reqt_from_trainset=True,
         )
 

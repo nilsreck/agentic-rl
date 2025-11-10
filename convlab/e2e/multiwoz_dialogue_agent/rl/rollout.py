@@ -173,23 +173,19 @@ async def comprehensive_rollout():
 
 
 async def benchmark():
+
+    import os
+
     # Declare the model
     model = art.TrainableModel(
-        name="dialogue_agent-agent-001",
-        project="dialogue_agent-agent-langgraph",
-        base_model="Qwen/Qwen2.5-14B-Instruct",
+        name="sft-convlab", project="convlab", base_model="./model"
     )
+    backend = LocalBackend()
 
-    model._internal_config = art.dev.InternalModelConfig(
-        init_args=art.dev.InitArgs(
-            max_seq_length=8192,
-        )
+    model = art.TrainableModel(
+        name="sft-convlab", project="convlab", base_model="unsloth/Qwen2.5-14B-Instruct"
     )
-
-    # Initialize the server
-    backend = LocalBackend(
-        path="./.art",
-    )
+    backend._experimental_pull_from_s3(model, s3_bucket=os.environ["BACKUP_BUCKET"])
 
     # Register the model with the local Backend (sets up logging, inference, and training)
     await model.register(backend)

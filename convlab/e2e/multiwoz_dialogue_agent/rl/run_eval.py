@@ -34,7 +34,7 @@ def launch_model():
 
     # Create a SkyPilot Task
     task = sky.Task(
-        name=f"deep-re-sft",
+        name=f"convlab-sft",
         setup=setup_script,
         run=run_script,
         workdir=".",  # Sync the project directory
@@ -43,7 +43,7 @@ def launch_model():
     task.set_resources(sky.Resources(accelerators="RTX4090:1"))
 
     # Generate cluster name
-    cluster_name = f"deep-re-sft"
+    cluster_name = f"convlab-sft"
     # Add cluster prefix if defined in environment
     cluster_prefix = os.environ.get("CLUSTER_PREFIX")
     if cluster_prefix:

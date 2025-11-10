@@ -113,6 +113,14 @@ async def train(model: art.TrainableModel):
                         Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
                     )
 
+        EXTRA_VAL_FILE = "convlab/e2e/multiwoz_dialogue_agent/rl/data/extra_val_goals.jsonl"
+        with open(EXTRA_VAL_FILE) as f:
+            for line in f.readlines():
+                obj = json.loads(line)
+                val_scenarios.append(
+                    Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
+                )
+
         random.seed(23)
         random.shuffle(train_scenarios)
 

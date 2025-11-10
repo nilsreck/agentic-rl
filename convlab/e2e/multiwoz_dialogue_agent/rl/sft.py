@@ -5,12 +5,11 @@
 # - converted from notebook to script format
 # See /licenses/LGPL-3.0.txt and /licenses/GPL-3.0.txt for full text.
 
-import torch
 from unsloth import FastLanguageModel
 
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="unsloth/Qwen2.5-7B-Instruct",
-    load_in_4bit=True,  # 4bit uses much less memory
+    model_name="unsloth/Qwen2.5-14B-Instruct",
+    load_in_4bit=False,  # 4bit uses much less memory
     load_in_8bit=False,  # A bit more accurate, uses 2x memory
     full_finetuning=False,  # We have full finetuning now!
     # token = "hf_...",      # use one if using gated models
@@ -57,7 +56,7 @@ def clean_messages(messages):
 
 
 all_conversations = []
-with open("training-data.jsonl", "r") as f:
+with open("convlab/e2e/multiwoz_dialogue_agent/rl/training-data.jsonl", "r") as f:
     for line in f:
         all_conversations.append(json.loads(line))
 
@@ -100,7 +99,7 @@ trainer = SFTTrainer(
         weight_decay=0.01,
         lr_scheduler_type="linear",
         seed=3407,
-        report_to="none",  # Use this for WandB etc
+        report_to="wandb",  # Use this for WandB etc
     ),
 )
 
@@ -120,15 +119,15 @@ trainer_stats = trainer.train()
 model.save_pretrained("model")
 tokenizer.save_pretrained("model")
 
-# import os
-#
-# import art
-# from art.local import LocalBackend
-#
-# model = art.TrainableModel(name="sft-deep-re", project="deep-re", base_model="./model")
-#
-# backend = LocalBackend()
-# backend._experimental_push_to_s3(
-#     model,
-#     s3_bucket=os.environ["BACKUP_BUCKET"],
-# )
+import os
+
+import art
+from art.local import LocalBackend
+
+model = art.TrainableModel(name="sft-convlab", project="convlab", base_model="./model")
+
+backend = LocalBackend()
+backend._experimental_push_to_s3(
+    model,
+    s3_bucket=os.environ["BACKUP_BUCKET"],
+)

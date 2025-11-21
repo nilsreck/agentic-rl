@@ -99,6 +99,8 @@ convlab/nlu/milu/multiwoz/configs/user_without_context.jsonnet
 # .bak.py
 *.bak.py
 
+.art
+
 # compile files
 build
 dist

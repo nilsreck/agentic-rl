@@ -1,3 +1,28 @@
+.git/
+
+# Ignore virtualenvs, caches, temp files
+.venv/
+venv/
+.uv/
+__pycache__/
+.cache/
+tmp/
+*.log
+
+# Ignore data and model checkpoints
+data/
+datasets/
+models/
+*.pt
+*.bin
+*.pkl
+*.ckpt
+
+# Ignore local tools and artifacts
+.art/
+wandb/
+runpodctl
+
 # extras
 Pipfile*
 results*

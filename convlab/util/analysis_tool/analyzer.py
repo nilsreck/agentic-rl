@@ -61,6 +61,10 @@ class Analyzer:
             if session_over:
                 break
 
+        if not session_over:
+            terminal_reward = sess.evaluator.get_reward(terminated=True)
+            total_reward += terminal_reward
+
         metrics = {
             "task_complete": sess.user_agent.policy.policy.goal.task_complete(),
             "task_success": sess.evaluator.task_success(),
@@ -260,6 +264,9 @@ class Analyzer:
             stats = sess.evaluator.inform_F1()
             total_total_emotion_reward += total_emotion_return
 
+            # Print reward to stdout after each dialogue
+            print(f"Dialogue {j}: reward={total_return:.4f}, success={task_success}, complete={task_complete}")
+
             if task_success:
                 print("Dialogue succesfully completed!", file=flog)
             else:
@@ -315,8 +322,8 @@ class Analyzer:
                 )
             domain_set = []
             for da in sess.evaluator.usr_da_array:
-                if da.split("-")[0] != "general" and da.split("-")[0] not in domain_set:
-                    domain_set.append(da.split("-")[0])
+                if da.split("_")[0] != "general" and da.split("_")[0] not in domain_set:
+                    domain_set.append(da.split("_")[0])
 
             turn_num += step
 

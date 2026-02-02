@@ -26,7 +26,7 @@ def launch_model():
         uv remove openpipe-art
         uv add 'openpipe-art[backend,langgraph]'
         uv remove wandb
-        uv add wandb==0.21.0
+        uv add wandb==0.22.1
 
         uv run python convlab/e2e/multiwoz_dialogue_agent/rl/sft.py
     """
@@ -34,13 +34,13 @@ def launch_model():
 
     # Create a SkyPilot Task
     task = sky.Task(
-        name=f"covnlab-sft",
+        name=f"convlab-sft",
         setup=setup_script,
         run=run_script,
         workdir=".",  # Sync the project directory
         envs=dict(dotenv_values()),  # type: ignore
     )
-    task.set_resources(sky.Resources(accelerators="RTX4090:1"))
+    task.set_resources(sky.Resources(accelerators="H200-SXM:1"))
 
     # Generate cluster name
     cluster_name = f"convlab-sft"

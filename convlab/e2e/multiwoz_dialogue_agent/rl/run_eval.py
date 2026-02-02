@@ -3,7 +3,6 @@ import textwrap
 
 import sky
 from dotenv import dotenv_values, load_dotenv
-from sky import ClusterStatus
 
 load_dotenv()
 
@@ -49,12 +48,7 @@ def launch_model():
     if cluster_prefix:
         cluster_name = f"{cluster_prefix}-{cluster_name}"
     print(f"Launching task on cluster: {cluster_name}")
-
-    print("Checking for existing cluster and jobs…")
-    cluster_status = sky.stream_and_get(sky.status(cluster_names=[cluster_name]))
-    if len(cluster_status) > 0 and cluster_status[0]["status"] == ClusterStatus.UP:
-        print(f"Cluster {cluster_name} is UP. Canceling any active jobs…")
-        sky.stream_and_get(sky.cancel(cluster_name, all=True))
+    print("Submitting job in parallel mode (existing jobs will continue running)")
 
     # Launch the task; stream_and_get blocks until the task starts running, but
     # running this in its own thread means all models run in parallel.

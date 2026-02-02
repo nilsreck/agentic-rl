@@ -93,13 +93,14 @@ convlab/nlu/milu/multiwoz/configs/user_without_context.jsonnet
 **/log/**
 *.log
 
+.art
+
 # save
 **/save/**
 
 # .bak.py
 *.bak.py
 
-.art
 
 # compile files
 build
@@ -143,3 +144,4 @@ convlab/e2e/multiwoz_dialogue_agent/.langgraph_api
 TODO.md
 unsloth_compiled_cache
 wandb/
+model*/

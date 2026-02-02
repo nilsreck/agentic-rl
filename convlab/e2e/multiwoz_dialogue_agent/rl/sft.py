@@ -5,129 +5,183 @@
 # - converted from notebook to script format
 # See /licenses/LGPL-3.0.txt and /licenses/GPL-3.0.txt for full text.
 
+import asyncio
+
+from transformers.trainer_callback import TrainerCallback
 from unsloth import FastLanguageModel
 
-model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name="unsloth/Qwen2.5-14B-Instruct",
-    load_in_4bit=False,  # 4bit uses much less memory
-    load_in_8bit=False,  # A bit more accurate, uses 2x memory
-    full_finetuning=False,  # We have full finetuning now!
-    # token = "hf_...",      # use one if using gated models
-)
-
-model = FastLanguageModel.get_peft_model(
-    model,
-    r=8,  # Choose any number > 0! Suggested 8, 16, 32, 64, 128
-    target_modules=[
-        "q_proj",
-        "k_proj",
-        "v_proj",
-        "o_proj",
-        "gate_proj",
-        "up_proj",
-        "down_proj",
-    ],
-    lora_alpha=16,  # Best to choose alpha = rank or rank*2
-    lora_dropout=0,  # Supports any, but = 0 is optimized
-    bias="none",  # Supports any, but = "none" is optimized
-    # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
-    use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
-    random_state=3407,
-    use_rslora=False,  # We support rank stabilized LoRA
-    loftq_config=None,  # And LoftQ
-)
-
-import copy
-import json
-
-from datasets import Dataset as HFDataset
+# class EarlyStopper(TrainerCallback):
+#     def __init__(self, metric_name="eval_loss", greater_is_better=False, patience=0):
+#         self.metric_name = metric_name
+#         self.greater_is_better = greater_is_better
+#         self.patience = patience
+#         self.best = None
+#         self.bad_epochs = 0
+#
+#     def _improved(self, value):
+#         if self.best is None:
+#             return True
+#         else:
+#             return value < self.best
+#
+#     def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+#         if not metrics or self.metric_name not in metrics:
+#             return control
+#
+#         score = metrics[self.metric_name]
+#         if self._improved(score):
+#             self.best = score
+#             self.bad_epochs = 0
+#         else:
+#             self.bad_epochs += 1
+#             if self.bad_epochs >= self.patience:
+#                 control.should_training_stop = True
+#         return control
 
 
-def clean_messages(messages):
-    msgs = copy.deepcopy(messages)
-    for m in msgs:
-        # drop empty tool_calls arrays
-        if m.get("tool_calls") == []:
-            m.pop("tool_calls", None)
-        # ensure content exists and is a string
-        if "content" not in m or m.get("content") is None:
-            m["content"] = ""
-    return msgs
+class SaveMergedModelCallback(TrainerCallback):
+    def on_epoch_end(self, args, state, control, **kwargs):
+        if state.epoch:
+            epoch = int(state.epoch)
+            output_dir = f"model_epoch_{epoch}"
+            print(f"Saving merged model to {output_dir}")
+            model = kwargs["model"]
+
+            # Save LoRA adapter
+            model.save_pretrained(output_dir)
+            tokenizer.save_pretrained(output_dir)
+
+        return
 
 
-all_conversations = []
-with open("convlab/e2e/multiwoz_dialogue_agent/rl/training-data.jsonl", "r") as f:
-    for line in f:
-        all_conversations.append(json.loads(line))
-
-dataset_list = []
-for conversation in all_conversations:
-    messages = clean_messages(conversation["messages"])  # <-- use the cleaner
-    tools = conversation.get("tools", None)
-    dataset_list.append(
-        tokenizer.apply_chat_template(
-            messages,
-            tools=tools,
-            add_generation_prompt=False,
-            tokenize=False,
-            enable_thinking=False,
-        )
+async def train():
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name="unsloth/Qwen2.5-14B-Instruct",
+        load_in_4bit=False,  # 4bit uses much less memory
+        load_in_8bit=False,  # A bit more accurate, uses 2x memory
+        full_finetuning=False,  # We have full finetuning now!
+        # token = "hf_...",      # use one if using gated models
     )
 
-full_dataset = HFDataset.from_dict({"text": dataset_list})
-split_dataset = full_dataset.train_test_split(test_size=0.05, seed=42)
-train_dataset = split_dataset["train"]
-val_dataset = split_dataset["test"]
+    model = FastLanguageModel.get_peft_model(
+        model,
+        r=8,  # Choose any number > 0! Suggested 8, 16, 32, 64, 128
+        target_modules=[
+            "q_proj",
+            "k_proj",
+            "v_proj",
+            "o_proj",
+            "gate_proj",
+            "up_proj",
+            "down_proj",
+        ],
+        lora_alpha=16,  # Best to choose alpha = rank or rank*2
+        lora_dropout=0,  # Supports any, but = 0 is optimized
+        bias="none",  # Supports any, but = "none" is optimized
+        # [NEW] "unsloth" uses 30% less VRAM, fits 2x larger batch sizes!
+        use_gradient_checkpointing="unsloth",  # True or "unsloth" for very long context
+        random_state=3407,
+        use_rslora=False,  # We support rank stabilized LoRA
+        loftq_config=None,  # And LoftQ
+    )
 
-print(dataset_list[0])
+    import copy
+    import json
 
-from transformers import DataCollatorForSeq2Seq
-from trl import SFTConfig, SFTTrainer
+    from datasets import Dataset as HFDataset
 
-trainer = SFTTrainer(
-    model=model,
-    tokenizer=tokenizer,
-    train_dataset=train_dataset,
-    eval_dataset=val_dataset,
-    args=SFTConfig(
-        dataset_text_field="text",
-        warmup_steps=5,
-        num_train_epochs=10,
-        learning_rate=2e-5,
-        logging_steps=1,
-        optim="adamw_8bit",
-        weight_decay=0.01,
-        lr_scheduler_type="linear",
-        seed=3407,
-        report_to="wandb",  # Use this for WandB etc
-    ),
-)
+    def clean_messages(messages):
+        msgs = copy.deepcopy(messages)
+        for m in msgs:
+            # drop empty tool_calls arrays
+            if m.get("tool_calls") == []:
+                m.pop("tool_calls", None)
+            # ensure content exists and is a string
+            if "content" not in m or m.get("content") is None:
+                m["content"] = ""
+        return msgs
 
-from unsloth_zoo.dataset_utils import train_on_responses_only
+    all_conversations = []
+    with open("convlab/e2e/multiwoz_dialogue_agent/rl/training-data-combined.jsonl") as f:
+        for line in f:
+            all_conversations.append(json.loads(line))
 
-QWEN_INSTRUCTION_PART = "<|im_start|>user\n"
-QWEN_RESPONSE_PART = "<|im_start|>assistant\n"
-trainer.data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer)
-trainer = train_on_responses_only(
-    trainer,
-    instruction_part=QWEN_INSTRUCTION_PART,
-    response_part=QWEN_RESPONSE_PART,
-)
+    dataset_list = []
+    for conversation in all_conversations:
+        messages = clean_messages(conversation["messages"])  # <-- use the cleaner
+        tools = conversation.get("tools", None)
+        dataset_list.append(
+            tokenizer.apply_chat_template(
+                messages,
+                tools=tools,
+                add_generation_prompt=False,
+                tokenize=False,
+                enable_thinking=False,
+            )
+        )
 
-trainer_stats = trainer.train()
+    full_dataset = HFDataset.from_dict({"text": dataset_list})
+    split_dataset = full_dataset.train_test_split(test_size=0.05, seed=42)
+    train_dataset = split_dataset["train"]
+    val_dataset = split_dataset["test"]
 
-model.save_pretrained("model")
-tokenizer.save_pretrained("model")
+    print(dataset_list[0])
 
-import os
+    from transformers.data.data_collator import DataCollatorForSeq2Seq
+    from trl import SFTConfig, SFTTrainer
 
-import art
-from art.local import LocalBackend
+    trainer = SFTTrainer(
+        model=model,
+        tokenizer=tokenizer,
+        train_dataset=train_dataset,
+        eval_dataset=val_dataset,
+        args=SFTConfig(
+            dataset_text_field="text",
+            warmup_steps=5,
+            num_train_epochs=10,
+            learning_rate=2e-5,
+            logging_steps=1,
+            optim="adamw_8bit",
+            weight_decay=0.01,
+            lr_scheduler_type="linear",
+            seed=3407,
+            report_to="wandb",  # Use this for WandB etc
+            save_strategy="no",
+        ),
+        callbacks=[SaveMergedModelCallback()],
+    )
 
-model = art.TrainableModel(name="sft-convlab", project="convlab", base_model="./model")
+    from unsloth_zoo.dataset_utils import train_on_responses_only
 
-backend = LocalBackend()
-backend._experimental_push_to_s3(
-    model,
-    s3_bucket=os.environ["BACKUP_BUCKET"],
-)
+    QWEN_INSTRUCTION_PART = "<|im_start|>user\n"
+    QWEN_RESPONSE_PART = "<|im_start|>assistant\n"
+    trainer.data_collator = DataCollatorForSeq2Seq(tokenizer=tokenizer)
+    trainer = train_on_responses_only(
+        trainer,
+        instruction_part=QWEN_INSTRUCTION_PART,
+        response_part=QWEN_RESPONSE_PART,
+    )
+
+    trainer_stats = trainer.train()
+
+    model.save_pretrained("model")
+    tokenizer.save_pretrained("model")
+
+    import os
+
+    import art
+    from art.local import LocalBackend
+
+    model = art.TrainableModel(
+        name="sft-convlab-v3", project="convlab", base_model="./model"
+    )
+
+    backend = LocalBackend()
+    await backend._experimental_push_to_s3(
+        model,
+        s3_bucket=os.environ["BACKUP_BUCKET"],
+    )
+
+
+if __name__ == "__main__":
+    asyncio.run(train())

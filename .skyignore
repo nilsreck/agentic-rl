@@ -1,3 +1,4 @@
+# Always ignore local Git history
 .git/
 
 # Ignore virtualenvs, caches, temp files
@@ -9,17 +10,26 @@ __pycache__/
 tmp/
 *.log
 
+# ignore sft models
+model/
+model_epoch*
 # Ignore data and model checkpoints
-data/
+data/camrest
+data/crosswoz
+data/crosswoz_en
+data/deal_or_not
+data/multiwoz2.3
+data/multiwoz_zh
+data/unified_datasets
+
 datasets/
-models/
 *.pt
 *.bin
 *.pkl
 *.ckpt
 
 # Ignore local tools and artifacts
-.art/
+.art
 wandb/
 runpodctl
 
@@ -144,6 +154,32 @@ convlab/dst/trade/multiwoz_config/
 convlab/deploy/bert_multiwoz_all.zip
 convlab/deploy/templates/dialog_eg.html
 *convlab/policy/vector/action_dicts
+
+# policy files
+convlab/policy/USMDA/
+convlab/policy/corpus_pipeline/
+convlab/policy/dqn/
+convlab/policy/emoUS/
+convlab/policy/emoUS_v2/
+convlab/policy/gdpl/
+convlab/policy/genTUS/
+convlab/policy/hdsa/
+convlab/policy/larl/
+convlab/policy/lava/
+convlab/policy/llmforus/
+convlab/policy/mdrg/
+convlab/policy/mle/
+convlab/policy/pg/
+convlab/policy/ppo/
+convlab/policy/tus/
+convlab/policy/ussT5/
+convlab/policy/vector/
+convlab/policy/vhus/
+convlab/policy/vtrace_DPT/
+
+# documentation
+examples/
+tutorials/
 
 *.egg-info
 .eggs/*

@@ -44,9 +44,9 @@ args = parser.parse_args()
 # graph_semaphore = asyncio.Semaphore(8)
 
 
-def create_goal_dataset(n_goals: int = 100) -> List[Goal]:
+def create_goal_dataset(n_goals: int = 300) -> List[Goal]:
     goal_generator = GoalGenerator(
-        corpus_path="/home/user/reck/ConvLab3-thesis/data/multiwoz/train.json",
+        corpus_path="/root/sky_workdir/data/multiwoz/train.json",
         sample_reqt_from_trainset=True,
     )
     goals = []
@@ -176,29 +176,32 @@ async def benchmark():
 
     import os
 
-    # Declare the model
-    model = art.TrainableModel(
-        name="sft-convlab", project="convlab", base_model="./model"
-    )
-    backend = LocalBackend()
+    with LocalBackend() as backend:
+        model = art.TrainableModel(
+            name="sft-convlab",
+            project="convlab",
+            base_model="unsloth/Qwen2.5-14B-Instruct",
+        )
 
-    model = art.TrainableModel(
-        name="sft-convlab", project="convlab", base_model="unsloth/Qwen2.5-14B-Instruct"
-    )
-    backend._experimental_pull_from_s3(model, s3_bucket=os.environ["BACKUP_BUCKET"])
+        # await backend._experimental_pull_from_s3(
+        #     model, s3_bucket=os.environ["BACKUP_BUCKET"], verbose=True, step=0
+        # )
 
-    # Register the model with the local Backend (sets up logging, inference, and training)
-    await model.register(backend)
+        await model.register(backend)
 
-    groups = []
+        groups = []
 
-    trajectories = []
-    for _ in range(1):
-        trajectory = await wrap_rollout(model, comprehensive_rollout)()
-        trajectories.append(trajectory)
+        trajectories = []
+        for _ in range(1):
+            trajectory = await wrap_rollout(model, comprehensive_rollout)()
+            trajectories.append(trajectory)
 
-    groups.append(art.TrajectoryGroup(trajectories))
+        groups.append(art.TrajectoryGroup(trajectories))
 
 
 if __name__ == "__main__":
     asyncio.run(benchmark())
+    # save_goals_to_jsonl(
+    #     "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/extra_goals.jsonl",
+    #     300,
+    # )

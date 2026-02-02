@@ -1,5 +1,8 @@
 from dotenv import load_dotenv
 
+from convlab.e2e.multiwoz_dialogue_agent.rl.collect_sft import load_scenarios_from_jsonl
+from convlab.policy.rule.multiwoz.policy_agenda_multiwoz import Goal
+
 load_dotenv()
 
 from langchain_core.messages import AIMessage
@@ -23,13 +26,9 @@ def _patched_init(self, **kwargs):
 AIMessage.__init__ = _patched_init
 
 import asyncio
-import io
 import json
 import os
 import random
-import statistics
-import threading
-import zipfile
 from dataclasses import dataclass
 from typing import List
 
@@ -37,11 +36,8 @@ import art
 
 # import torch
 import polars as pl
-import requests
-import tenacity
 from art.langgraph import wrap_rollout
 from art.local import LocalBackend
-from art.rewards import ruler_score_group
 from art.utils import iterate_dataset
 from rollout import rollout
 from tqdm.asyncio import tqdm
@@ -49,16 +45,16 @@ from tqdm.asyncio import tqdm
 
 @dataclass
 class Scenario:
-    prompt: str
+    goal: Goal
     prompt_id: str
 
 
 async def benchmark_model(model: art.Model, val_scenarios: List[Scenario]):
-    val_scenarios = val_scenarios + val_scenarios
 
+    print(f"{len(val_scenarios)=}")
     val_trajectories = await tqdm.gather(
         *(
-            wrap_rollout(model, rollout)(scenario.prompt, scenario.prompt_id)
+            wrap_rollout(model, rollout)(scenario.goal, scenario.prompt_id)
             for scenario in val_scenarios
         ),
         desc=f"validation {model.name}",
@@ -84,42 +80,38 @@ async def benchmark_model(model: art.Model, val_scenarios: List[Scenario]):
 async def train(model: art.TrainableModel):
     with LocalBackend() as backend:
         model = art.TrainableModel(
-            name="sft-convlab",
+            name="sft-convlab-reward",
             project="convlab",
             base_model="unsloth/Qwen2.5-14B-Instruct",
         )
-        backend._experimental_pull_from_s3(model, s3_bucket=os.environ["BACKUP_BUCKET"])
+
+        # await backend._experimental_pull_from_s3(
+        #     model, s3_bucket=os.environ["BACKUP_BUCKET"], verbose=True
+        # )
 
         await model.register(backend)
+
+        all_scenarios = load_scenarios_from_jsonl(jsonl_file="goals.jsonl")
+
+        extra_val_scenarios = load_scenarios_from_jsonl(
+            jsonl_file="extra_val_data.jsonl"
+        )
 
         train_scenarios: List[Scenario] = []
         val_scenarios: List[Scenario] = []
         sft_scenarios: List[Scenario] = []
 
-        PROMPT_FILE = "convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
-        with open(PROMPT_FILE) as f:
-            for line in f.readlines():
-                obj = json.loads(line)
-                if (obj["id"] - 1) % 50 >= 45:
-                    val_scenarios.append(
-                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
-                    )
-                elif (obj["id"] - 1) % 50 >= 20:
-                    sft_scenarios.append(
-                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
-                    )
-                else:
-                    train_scenarios.append(
-                        Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
-                    )
+        for scenario in all_scenarios:
+            scenario_id = int(scenario.prompt_id)
+            if (scenario_id - 1) % 50 >= 45:
+                val_scenarios.append(scenario)
+            elif (scenario_id - 1) % 50 >= 20:
+                sft_scenarios.append(scenario)
+            else:
+                train_scenarios.append(scenario)
 
-        EXTRA_VAL_FILE = "convlab/e2e/multiwoz_dialogue_agent/rl/data/extra_val_goals.jsonl"
-        with open(EXTRA_VAL_FILE) as f:
-            for line in f.readlines():
-                obj = json.loads(line)
-                val_scenarios.append(
-                    Scenario(prompt=obj["prompt"], prompt_id=obj["id"])
-                )
+        for scenario in extra_val_scenarios:
+            val_scenarios.append(scenario)
 
         random.seed(23)
         random.shuffle(train_scenarios)
@@ -146,7 +138,7 @@ async def train(model: art.TrainableModel):
                     art.TrajectoryGroup(
                         (
                             wrap_rollout(model, rollout)(
-                                scenario.prompt, scenario.prompt_id
+                                scenario.goal, scenario.prompt_id
                             )
                             for _ in range(16)
                         )

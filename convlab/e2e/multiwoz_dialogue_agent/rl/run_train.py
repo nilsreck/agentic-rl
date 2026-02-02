@@ -21,7 +21,7 @@ def launch_model():
     # Remove --no-managed-python and revert to python 3.12 once https://github.com/astral-sh/python-build-standalone/pull/667#issuecomment-3059073433 is addressed.
     # uv pip install "git+https://github.com/JonesAndrew/ART.git@12e1dfe#egg=openpipe-art[backend,langgraph]"
     run_script = textwrap.dedent(
-        f"""
+        """
         uv sync
         uv remove openpipe-art
         uv add 'openpipe-art[backend,langgraph]'
@@ -34,7 +34,7 @@ def launch_model():
 
     # Create a SkyPilot Task
     task = sky.Task(
-        name=f"convlab-sft",
+        name="convlab-sft",
         setup=setup_script,
         run=run_script,
         workdir=".",  # Sync the project directory
@@ -43,7 +43,7 @@ def launch_model():
     task.set_resources(sky.Resources(accelerators="H200-SXM:1"))
 
     # Generate cluster name
-    cluster_name = f"convlab-sft"
+    cluster_name = "convlab-sft"
     # Add cluster prefix if defined in environment
     cluster_prefix = os.environ.get("CLUSTER_PREFIX")
     if cluster_prefix:

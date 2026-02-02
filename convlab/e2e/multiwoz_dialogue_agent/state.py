@@ -1,4 +1,4 @@
-from typing import Dict, Literal, Optional, Tuple
+from typing import Dict, Literal, Tuple
 
 from langgraph.graph import MessagesState
 from pydantic import BaseModel, Field
@@ -7,7 +7,7 @@ from convlab.e2e.multiwoz_dialogue_agent.agents.schemas import AgentType
 
 
 class AgentState(MessagesState):
-    agent: Optional[AgentType]
+    agent: AgentType | None
     belief_state: Dict[str, Dict[str, str]]
 
 
@@ -79,13 +79,13 @@ class Restaurant(BaseModel):
     address: str
     area: Area
     food: FoodType
-    introduction: Optional[str] = None
+    introduction: str | None = None
     location: tuple[float, float]
-    phone: Optional[str] = None
+    phone: str | None = None
     postcode: str
     pricerange: Literal["cheap", "moderate", "expensive"]
     type: Literal["restaurant"]
-    signature: Optional[str] = None
+    signature: str | None = None
     Ref: str
 
 

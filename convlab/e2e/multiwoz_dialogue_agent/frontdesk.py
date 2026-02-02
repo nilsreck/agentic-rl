@@ -10,7 +10,7 @@ from convlab.e2e.multiwoz_dialogue_agent.state import AgentState
 class DialogueAgent(Agent):
     def __init__(self, name="dialogue_agent"):
         super(DialogueAgent, self).__init__(name=name)
-        self.workflow = get_workflow().compile(checkpointer=MemorySaver())
+        self.workflow = get_workflow().compile()
         self.conversation_history = []
         self.state = build_convlab3_empty_state()
 

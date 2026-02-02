@@ -1,25 +1,23 @@
 import json
 import locale as locale_module
-import traceback
 from datetime import datetime
 from enum import Enum
-from typing import Callable, List, Literal, Optional
+from typing import Callable, List
 
 from art.langgraph.llm_wrapper import LoggingLLM
 from langchain_core.messages import (
     AIMessage,
-    HumanMessage,
     SystemMessage,
     ToolMessage,
     get_buffer_string,
 )
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langgraph.graph import END, START
 from langgraph.graph.state import RunnableConfig
 from langgraph.prebuilt import ToolNode
 from langgraph.types import Command
 
 from convlab.e2e.multiwoz_dialogue_agent.state import AgentState, RouteIntent
+from convlab.e2e.multiwoz_dialogue_agent.agents.schemas import AgentType
 
 from ..prompts.formality_prompts import (
     ASSISTANT_FORMAL_PROMPT,
@@ -51,8 +49,7 @@ def get_language_by_locale(locale: str) -> str:
 
 
 def get_current_locale_date_time(locale_str: str) -> str:
-    """
-    Get current date and time formatted for the specified locale.
+    """Get current date and time formatted for the specified locale.
 
     Args:
         locale_str: Locale string (e.g., 'en-US', 'de-DE')
@@ -78,8 +75,7 @@ def get_current_locale_date_time(locale_str: str) -> str:
 
 
 def create_router_output_schema(agent_values: List[str]):
-    """
-    Create a simple schema for router output validation.
+    """Create a simple schema for router output validation.
 
     Args:
         agent_values: List of valid agent type strings
@@ -109,10 +105,9 @@ def populate_agent_graph(
     agent_client,
     router_client,
     locale: str,
-    on_error: Optional[Callable[[Exception], None]] = None,
+    on_error: Callable[[Exception], None] | None = None,
 ):
-    """
-    Populate an agent graph with nodes and edges for workflow processing.
+    """Populate an agent graph with nodes and edges for workflow processing.
 
     Args:
         workflow: AgentStateGraph instance
@@ -199,7 +194,7 @@ def create_agent_output_edge():
 def create_agent_router_node(
     model: LoggingLLM,
     agents: List,
-    on_error: Optional[Callable[[Exception], None]] = None,
+    on_error: Callable[[Exception], None] | None = None,
 ) -> Callable:
 
     def route_intent(state: AgentState, config: RunnableConfig) -> Command:
@@ -228,20 +223,22 @@ def create_agent_router_node(
             if result.intent == "HOTEL":
                 return Command(
                     goto=result.intent,
-                    update={"agent": result.intent},
+                    update={"agent": AgentType.HOTEL},
                 )
 
             if result.intent == "RESTAURANT":
                 return Command(
                     goto=result.intent,
-                    update={"agent": result.intent},
+                    update={"agent": AgentType.RESTAURANT},
                 )
 
-            return {"agent": result.intent}
+            # Fallback - should not reach here if intent is valid
+            agent_type = AgentType[result.intent] if hasattr(AgentType, result.intent) else None
+            return {"agent": agent_type}
 
-        except Exception as error:
+        except Exception:
             if on_error:
-                print(f"Router failed")
+                print("Router failed")
             return Command(goto="END")
 
     return route_intent
@@ -250,7 +247,9 @@ def create_agent_router_node(
 def create_router_edge():
 
     def router_edge_handler(state):
-        return state["agent"]
+        agent = state["agent"]
+        # Convert AgentType enum to string value
+        return agent.value if isinstance(agent, AgentType) else agent
 
     return router_edge_handler
 
@@ -260,10 +259,9 @@ def create_agent_node(
     agent,
     model: LoggingLLM,
     locale: str,
-    on_error: Optional[Callable[[Exception], None]] = None,
+    on_error: Callable[[Exception], None] | None = None,
 ):
-    """
-    Create an agent node function for workflow processing.
+    """Create an agent node function for workflow processing.
 
     Args:
         config: AssistantConfig instance
@@ -299,10 +297,15 @@ def create_agent_node(
 
             system_prompt = agent.get_system_prompt().format(**format_kwargs)
 
-            response = model.bind_tools(agent.get_tools()).invoke(
-                [SystemMessage(system_prompt)] + state.get("messages", [])
-            )
+            # configurable = Configuration.from_runnable_config(config)
 
+            # model_config = {"temperature": configurable.temperature}
+
+            response = (
+                model.bind_tools(agent.get_tools())
+                # .with_config(model_config)
+                .invoke([SystemMessage(system_prompt)] + state.get("messages", []))
+            )
             # print(f"{state=}")
 
             belief_state = state["belief_state"]
@@ -361,9 +364,10 @@ def create_agent_node(
                     belief_state["restaurant"]["book people"] = str(people)
                     belief_state["restaurant"]["book time"] = str(time)
 
-            return Command(
-                goto=END, update={"messages": [response], "agent": agent.type}
-            )
+            return {
+                "messages": [response],
+                "agent": agent.type,
+            }
 
         except Exception as error:
             print(f"Error in agent node {agent.type}: {error}")

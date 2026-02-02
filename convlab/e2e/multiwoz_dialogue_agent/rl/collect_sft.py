@@ -39,7 +39,7 @@ def load_scenarios_from_jsonl(jsonl_file: str) -> List[Scenario]:
 
     scenarios = []
 
-    with open(jsonl_file, "r") as f:
+    with open(jsonl_file) as f:
         for line in f:
             record = json.loads(line.strip())
 
@@ -53,6 +53,7 @@ def load_scenarios_from_jsonl(jsonl_file: str) -> List[Scenario]:
 
 async def collect_training_data(model: art.Model, sft_scenarios: List[Scenario]):
     sft_scenarios = sft_scenarios + sft_scenarios
+    print(f"{len(sft_scenarios)=}")
 
     sft_trajectories = await tqdm.gather(
         *(
@@ -63,7 +64,6 @@ async def collect_training_data(model: art.Model, sft_scenarios: List[Scenario])
     )
 
     valid_trajectories = [t for t in sft_trajectories if isinstance(t, art.Trajectory)]
-    print(f"{valid_trajectories=}")
 
     training_data = []
 
@@ -83,7 +83,7 @@ async def collect_training_data(model: art.Model, sft_scenarios: List[Scenario])
             )
 
     with open(
-        "data/training-data.jsonl",
+        "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/extra_training_data.jsonl",
         "w",
     ) as f:
         for data in training_data:
@@ -111,7 +111,7 @@ async def train(model: art.TrainableModel):
     )
 
     all_scenarios = load_scenarios_from_jsonl(
-        "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/goals.jsonl"
+        "/home/reck/personal/ConvLab-3/convlab/e2e/multiwoz_dialogue_agent/rl/data/extra_goals.jsonl"
     )
 
     train_scenarios: List[Scenario] = []

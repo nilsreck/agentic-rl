@@ -5,6 +5,13 @@ from convlab.dialog_agent import Agent
 from convlab.e2e.multiwoz_dialogue_agent.agent_graph import get_workflow
 from convlab.e2e.multiwoz_dialogue_agent.policy_utils import build_convlab3_empty_state
 from convlab.e2e.multiwoz_dialogue_agent.state import AgentState
+from convlab.util import load_ontology
+
+
+def build_convlab3_empty_state(dataset_name="multiwoz21"):
+
+    ontology = load_ontology(dataset_name)
+    return ontology["state"]
 
 
 class DialogueAgent(Agent):
@@ -13,6 +20,8 @@ class DialogueAgent(Agent):
         self.workflow = get_workflow().compile()
         self.conversation_history = []
         self.state = build_convlab3_empty_state()
+        self.active_domain = None
+        self.force_all_state_slot = True
 
     def response(self, observation, **kwargs):
         """Generate response using the dialogue agent graph.
@@ -60,6 +69,8 @@ class DialogueAgent(Agent):
 
     def init_session(self, **kwargs):
         """Reset the conversation history for a new session."""
+        self.state = build_convlab3_empty_state()
+        print(f"{self.state=}")
         self.conversation_history = []
         self.state = build_convlab3_empty_state()
 

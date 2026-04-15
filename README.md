@@ -42,4 +42,5 @@ uv run run_train.py # Run your rl training run. >1 Day
 For benchmarking, run `uv run run_eval.py`.
 
 ## Acknowledgements
-Huge thanks to the [ART](https://github.com/OpenPipe/ART) maintainers for building this framework and giving extremely valuable feedback via their Discord channel.
+This project builds upon the work of [ConvLab-3](https://github.com/ConvLab/ConvLab-3) and [Openpipe's Open Deep Research](https://github.com/OpenPipe/open_deep_research_training).
+Huge thanks to the ART and ConvLab maintainers for giving extremely valuable feedback.
